@@ -178,3 +178,7 @@ use them. You are responsible for what you confirm. Provided *as is*, without wa
   Made with caffeine and neon by <b>sirpips</b> · <b>SPDW Factory Lab</b><br>
   <sub>MIT licensed</sub>
 </p>
+
+## 📚 Practical Wiki
+
+The [GitHub Wiki](https://github.com/SilverCrow2323/spdw-debian-purge-cleaner/wiki) contains short task guides for installation, DRY-RUN, disk scans, cleanup categories, package removal and CLI use. The tracked source is in [wiki-source/](wiki-source/); maintainers can publish reviewed pages with `sh tools/publish_wiki.sh`.
