@@ -8,7 +8,7 @@ on:
       - "tests/**"
       - "packaging/**"
       - "Makefile"
-      - ".github/workflows/debian-package.yml"
+      - ".github/workflows/python-publish.yml"
   pull_request:
     branches: [main]
     paths:
@@ -16,7 +16,7 @@ on:
       - "tests/**"
       - "packaging/**"
       - "Makefile"
-      - ".github/workflows/debian-package.yml"
+      - ".github/workflows/python-publish.yml"
   release:
     types: [published]
   workflow_dispatch:
