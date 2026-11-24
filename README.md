@@ -76,6 +76,8 @@ sudo apt install ./spdw-purge_1.1.0_all.deb
 
 Launch **SPDW Purge** from the menu, or run `spdw-purge`.
 
+The project ships as a native Debian `.deb` package, not as a PyPI distribution. A published GitHub Release now triggers a validation/build workflow: it runs the unit suite and built-in safety self-test, checks the shell launch/maintainer scripts, builds the `.deb`, inspects its package metadata and payload, and stores the package plus SHA-256 sidecar as a 30-day GitHub Actions artifact. The workflow does **not** publish to PyPI or attach binaries to a public release automatically.
+
 ### From source
 
 ```bash

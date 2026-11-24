@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Debian release workflow
+- Replace the stock PyPI publishing template (which failed because the repository has no Python packaging metadata) with a native Debian package validation/build workflow.
+- Run unit tests, the built-in safety self-test and shell syntax checks before packaging.
+- Inspect the generated `.deb` metadata/payload and upload it with a SHA-256 sidecar as a retained Actions artifact; no PyPI or public-release binary publishing is performed automatically.
+
+
 ## 1.1.0 — first public release
 - English UI, restructured as a Python package (`spdw_purge`) with tests, CI and `.deb` packaging
 - **SCAN**: interactive squarified **treemap** (click to select, double-click to dive, UP to go back),
