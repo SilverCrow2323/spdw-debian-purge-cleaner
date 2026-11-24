@@ -1,0 +1,78 @@
+name: Debian package validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "spdw_purge/**"
+      - "tests/**"
+      - "packaging/**"
+      - "Makefile"
+      - ".github/workflows/debian-package.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "spdw_purge/**"
+      - "tests/**"
+      - "packaging/**"
+      - "Makefile"
+      - ".github/workflows/debian-package.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debian-package:
+    name: Test and build native Debian package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up supported Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run unit tests and built-in safety self-test
+        run: make test
+
+      - name: Validate launcher and maintainer scripts
+        run: |
+          sh -n packaging/spdw-purge
+          sh -n packaging/postinst
+          sh -n packaging/postrm
+
+      - name: Build the Debian package
+        run: make deb
+
+      - name: Inspect package metadata and payload
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          deb="$(find dist -maxdepth 1 -type f -name 'spdw-purge_*_all.deb' -print -quit)"
+          test -n "$deb"
+          package="$(dpkg-deb --field "$deb" Package)"
+          version="$(dpkg-deb --field "$deb" Version)"
+          architecture="$(dpkg-deb --field "$deb" Architecture)"
+          test "$package" = "spdw-purge"
+          test "$architecture" = "all"
+          grep -Fq "VER = \"$version\"" spdw_purge/core.py
+          dpkg-deb --info "$deb"
+          dpkg-deb --contents "$deb"
+          sha256sum "$deb" | tee "$deb.sha256"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified Debian package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPDW-Purge-deb-${{ steps.package.outputs.version }}
+          path: |
+            dist/spdw-purge_*_all.deb
+            dist/spdw-purge_*_all.deb.sha256
+          if-no-files-found: error
+          retention-days: 30
