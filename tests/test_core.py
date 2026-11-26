@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 from spdw_purge import cats, core, finder
 
@@ -63,6 +64,26 @@ class CoreTests(unittest.TestCase):
             self.assertTrue(os.path.exists(f"{self.d}/keep/f.bin"))
         finally:
             core.DRY.clear()
+
+    def test_delete_primitives_refuse_protected_targets(self):
+        target = f"{self.d}/protected/f.bin"
+        mk(target)
+        with mock.patch.object(core, "protected", return_value=True):
+            self.assertEqual(core.rm_path(f"{self.d}/protected"), 0)
+            messages = []
+            self.assertEqual(core.destroy(f"{self.d}/protected", False,
+                                          lambda *args: messages.append(args)), 0)
+        self.assertTrue(os.path.isfile(target))
+        self.assertTrue(any("protected path" in str(item) for item in messages))
+
+    def test_rm_path_unlinks_symlink_without_touching_target(self):
+        target = f"{self.d}/target.bin"
+        link = f"{self.d}/link.bin"
+        mk(target, b"keep me")
+        os.symlink(target, link)
+        self.assertEqual(core.rm_path(link), 0, "unlinking a symlink must not count target-file bytes as freed")
+        self.assertFalse(os.path.lexists(link))
+        self.assertTrue(os.path.isfile(target))
 
     def test_real_delete(self):
         mk(f"{self.d}/gone/f.bin")

@@ -145,7 +145,7 @@ Run a weekly safe clean with cron:
 ## Development
 
 ```bash
-make test          # unit tests + built-in selftest
+make test          # unit tests + built-in selftest (also run in GitHub Actions)
 make screenshots   # regenerate assets/screenshots headlessly (Xvfb + ImageMagick)
 make deb           # build the package
 ```
