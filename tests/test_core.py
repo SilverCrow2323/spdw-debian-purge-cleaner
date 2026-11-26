@@ -81,7 +81,7 @@ class CoreTests(unittest.TestCase):
         link = f"{self.d}/link.bin"
         mk(target, b"keep me")
         os.symlink(target, link)
-        self.assertGreater(core.rm_path(link), 0)
+        self.assertEqual(core.rm_path(link), 0, "unlinking a symlink must not count target-file bytes as freed")
         self.assertFalse(os.path.lexists(link))
         self.assertTrue(os.path.isfile(target))
 
