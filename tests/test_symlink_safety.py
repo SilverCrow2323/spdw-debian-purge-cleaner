@@ -1,12 +1,9 @@
 """Regression tests for deletion and scanning around symbolic links."""
-import os
-import tempfile
 import threading
+import tempfile
 import unittest
 from pathlib import Path
-
 from spdw_purge import core, finder
-
 
 class SymlinkSafetyTests(unittest.TestCase):
     def setUp(self):
@@ -57,14 +54,18 @@ class SymlinkSafetyTests(unittest.TestCase):
         self.assertNotIn(str(self.outside), result.sizes)
         self.assertNotIn(str(self.outside / "secret.bin"), [row[1] for row in result.top])
 
-    def test_duplicate_finder_does_not_hash_symlink_targets(self):
+    def test_duplicate_finder_ignores_symlinks_but_finds_real_copies(self):
         payload = b"same content" * 10000
-        self.write(self.scan_root / "real.bin", payload)
-        (self.scan_root / "alias.bin").symlink_to(self.scan_root / "real.bin")
-        self.write(self.outside / "copy.bin", payload)
+        real = self.scan_root / "real.bin"
+        copy = self.scan_root / "copy.bin"
+        alias = self.scan_root / "alias.bin"
+        self.write(real, payload)
+        self.write(copy, payload)
+        alias.symlink_to(real)
         results = finder.find_duplicates(str(self.scan_root), 1, threading.Event())
-        self.assertEqual(results, [])
-
+        self.assertEqual(len(results), 1)
+        self.assertEqual(set(results[0][1]), {str(real), str(copy)})
+        self.assertNotIn(str(alias), results[0][1])
 
 if __name__ == "__main__":
     unittest.main()
