@@ -44,6 +44,10 @@ Built for **MX Linux (Xfce)** and works on any Debian-based distro.
 - **Audit log** of every action: `~/.local/state/spdw-purge/actions.log`.
 - Runs as root through **pkexec** only when needed; declining the prompt gives a limited user mode.
 
+## Deletion failure handling
+
+The low-level `rm_path` primitive no longer suppresses `shutil.rmtree` failures. A failed tree removal is reported as zero bytes freed and leaves the caller with a truthful failure result instead of a false success estimate. Host tests cover a simulated removal error and unlinking a directory symlink without touching its target.
+
 ## Screenshots
 
 <table>

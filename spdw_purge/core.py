@@ -321,7 +321,7 @@ def rm_path(p):
         if os.path.islink(p) or not os.path.isdir(p):
             os.remove(p)
         else:
-            shutil.rmtree(p, ignore_errors=True)
+            shutil.rmtree(p)
     except OSError:
         return 0
     return n
