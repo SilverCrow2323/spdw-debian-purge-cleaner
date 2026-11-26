@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 from spdw_purge import cats, core, finder
 
@@ -64,10 +65,46 @@ class CoreTests(unittest.TestCase):
         finally:
             core.DRY.clear()
 
+    def test_delete_primitives_refuse_protected_targets(self):
+        target = f"{self.d}/protected/f.bin"
+        mk(target)
+        with mock.patch.object(core, "protected", return_value=True):
+            self.assertEqual(core.rm_path(f"{self.d}/protected"), 0)
+            messages = []
+            self.assertEqual(core.destroy(f"{self.d}/protected", False,
+                                          lambda *args: messages.append(args)), 0)
+        self.assertTrue(os.path.isfile(target))
+        self.assertTrue(any("protected path" in str(item) for item in messages))
+
+    def test_rm_path_unlinks_symlink_without_touching_target(self):
+        target = f"{self.d}/target.bin"
+        link = f"{self.d}/link.bin"
+        mk(target, b"keep me")
+        os.symlink(target, link)
+        self.assertEqual(core.rm_path(link), 0, "unlinking a symlink must not count target-file bytes as freed")
+        self.assertFalse(os.path.lexists(link))
+        self.assertTrue(os.path.isfile(target))
+
     def test_real_delete(self):
         mk(f"{self.d}/gone/f.bin")
         self.assertGreater(core.destroy(f"{self.d}/gone", False, lambda *a: None), 0)
         self.assertFalse(os.path.exists(f"{self.d}/gone"))
+
+    def test_rm_path_reports_failure_when_tree_removal_fails(self):
+        target = f"{self.d}/blocked/f.bin"
+        mk(target)
+        with mock.patch.object(core.shutil, "rmtree", side_effect=OSError("simulated failure")):
+            self.assertEqual(core.rm_path(f"{self.d}/blocked"), 0)
+        self.assertTrue(os.path.isfile(target), "failed deletion must leave the tree intact")
+
+    def test_rm_path_unlinks_directory_symlink_without_touching_target(self):
+        target = f"{self.d}/target-dir"
+        link = f"{self.d}/link-dir"
+        mk(target + "/keep.txt", b"preserve")
+        os.symlink(target, link)
+        self.assertEqual(core.rm_path(link), 0, "unlinking a symlink does not free the target tree bytes")
+        self.assertFalse(os.path.lexists(link))
+        self.assertTrue(os.path.isfile(target + "/keep.txt"))
 
     def test_helpers(self):
         self.assertEqual(core.human(1536), "1.5K")
