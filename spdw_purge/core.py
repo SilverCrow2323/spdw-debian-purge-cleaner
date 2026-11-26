@@ -309,6 +309,10 @@ def dangerous(p):
 
 def rm_path(p):
     """Delete a file/tree silently. Returns bytes freed (or would-be freed in dry-run)."""
+    # Keep the safety boundary inside the primitive, not only in GUI/CLI callers.
+    if protected(p):
+        audit(f"BLOCKED rm protected path: {p}")
+        return 0
     n = du(p)
     audit(f"rm {p} ({human(n)})")
     if DRY.is_set():
@@ -325,6 +329,10 @@ def rm_path(p):
 
 def destroy(p, shred, log):
     """Delete with logging and optional shred. Returns bytes freed."""
+    if protected(p):
+        audit(f"BLOCKED {'shred' if shred else 'rm'} protected path: {p}")
+        log(f"[!] Refusing to delete protected path: {p}", "err")
+        return 0
     freed = du(p)
     audit(f"{'shred' if shred else 'rm'} {p} ({human(freed)})")
     if DRY.is_set():
