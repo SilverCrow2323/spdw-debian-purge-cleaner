@@ -102,7 +102,7 @@ class CoreTests(unittest.TestCase):
         link = f"{self.d}/link-dir"
         mk(target + "/keep.txt", b"preserve")
         os.symlink(target, link)
-        self.assertGreater(core.rm_path(link), 0)
+        self.assertEqual(core.rm_path(link), 0, "unlinking a symlink does not free the target tree bytes")
         self.assertFalse(os.path.lexists(link))
         self.assertTrue(os.path.isfile(target + "/keep.txt"))
 
