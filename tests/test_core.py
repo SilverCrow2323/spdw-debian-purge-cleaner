@@ -119,5 +119,39 @@ class CatTests(unittest.TestCase):
                 self.assertGreaterEqual(size, 0, c.key)
 
 
+
+    def test_rm_path_refuses_mount_points_at_the_primitive_boundary(self):
+        target = os.path.join(self.d, "mounted")
+        mk(os.path.join(target, "keep.bin"))
+        with mock.patch(
+            "spdw_purge.core.os.path.ismount",
+            side_effect=lambda path: os.path.normpath(path) == os.path.normpath(target),
+        ):
+            self.assertEqual(core.rm_path(target), 0)
+        self.assertTrue(os.path.exists(os.path.join(target, "keep.bin")))
+
+    def test_recursive_delete_refuses_nested_mount_boundaries(self):
+        target = os.path.join(self.d, "tree")
+        nested = os.path.join(target, "mounted")
+        mk(os.path.join(nested, "keep.bin"))
+        real_ismount = os.path.ismount
+
+        def ismount(path):
+            return os.path.normpath(path) == os.path.normpath(nested) or real_ismount(path)
+
+        with mock.patch("spdw_purge.core.os.path.ismount", side_effect=ismount):
+            messages = []
+            self.assertEqual(core.destroy(target, False, lambda *args: messages.append(args)), 0)
+        self.assertTrue(os.path.exists(os.path.join(nested, "keep.bin")))
+        self.assertTrue(any("nested mount point" in message[0] for message in messages))
+
+    def test_rm_path_reports_recursive_deletion_failure(self):
+        target = os.path.join(self.d, "partial")
+        mk(os.path.join(target, "keep.bin"))
+        with mock.patch("spdw_purge.core.shutil.rmtree", side_effect=OSError("permission denied")):
+            self.assertEqual(core.rm_path(target), 0)
+        self.assertTrue(os.path.exists(os.path.join(target, "keep.bin")))
+
+
 if __name__ == "__main__":
     unittest.main()
