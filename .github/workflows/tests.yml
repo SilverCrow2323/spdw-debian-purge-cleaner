@@ -1,0 +1,24 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-self-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Install system Python Tk bindings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+      - name: Compile maintained Python modules
+        run: /usr/bin/python3 -m compileall -q spdw_purge tools
+      - name: Run unit tests and application self-test
+        run: make test

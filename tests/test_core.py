@@ -1,7 +1,9 @@
 import os
+import shutil
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 from spdw_purge import cats, core, finder
 
@@ -42,6 +44,11 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(core.protected(self.d + "/anything"))
         self.assertTrue(core.dangerous("/etc/passwd"))
         self.assertFalse(core.dangerous(self.d))
+
+    def test_mountpoints_are_protected_outside_the_fixed_path_list(self):
+        candidate = os.path.join(self.d, "mounted-volume")
+        with mock.patch("spdw_purge.core.os.path.ismount", return_value=True):
+            self.assertTrue(core.protected(candidate))
 
     def test_old_kernels_keeps_running_and_newest(self):
         txt = ("linux-image-6.1.0-13-amd64\tii \t300\nlinux-image-6.1.0-18-amd64\tii \t300\n"
@@ -106,11 +113,50 @@ class FinderTests(unittest.TestCase):
 
 
 class CatTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.d, ignore_errors=True)
+        core.DRY.clear()
+
     def test_every_usable_category_scans(self):
         for c in cats.build_cats():
             if c.usable():
                 size, _note = c.scan()
                 self.assertGreaterEqual(size, 0, c.key)
+
+
+
+    def test_rm_path_refuses_mount_points_at_the_primitive_boundary(self):
+        target = os.path.join(self.d, "mounted")
+        mk(os.path.join(target, "keep.bin"))
+        with mock.patch(
+            "spdw_purge.core.os.path.ismount",
+            side_effect=lambda path: os.path.normpath(path) == os.path.normpath(target),
+        ):
+            self.assertEqual(core.rm_path(target), 0)
+        self.assertTrue(os.path.exists(os.path.join(target, "keep.bin")))
+
+    def test_recursive_delete_refuses_nested_mount_boundaries(self):
+        target = os.path.join(self.d, "tree")
+        nested = os.path.join(target, "mounted")
+        mk(os.path.join(nested, "keep.bin"))
+        real_ismount = os.path.ismount
+
+        def ismount(path):
+            return os.path.normpath(path) == os.path.normpath(nested) or real_ismount(path)
+
+        with mock.patch("spdw_purge.core.os.path.ismount", side_effect=ismount):
+            messages = []
+            self.assertEqual(core.destroy(target, False, lambda *args: messages.append(args)), 0)
+        self.assertTrue(os.path.exists(os.path.join(nested, "keep.bin")))
+        self.assertTrue(any("nested mount point" in message[0] for message in messages))
+
+    def test_rm_path_reports_recursive_deletion_failure(self):
+        target = os.path.join(self.d, "partial")
+        mk(os.path.join(target, "keep.bin"))
+        with mock.patch("spdw_purge.core.shutil.rmtree", side_effect=OSError("permission denied")):
+            self.assertEqual(core.rm_path(target), 0)
+        self.assertTrue(os.path.exists(os.path.join(target, "keep.bin")))
 
 
 if __name__ == "__main__":
