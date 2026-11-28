@@ -2,6 +2,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 from spdw_purge import cats, core, finder
 
@@ -42,6 +43,11 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(core.protected(self.d + "/anything"))
         self.assertTrue(core.dangerous("/etc/passwd"))
         self.assertFalse(core.dangerous(self.d))
+
+    def test_mountpoints_are_protected_outside_the_fixed_path_list(self):
+        candidate = os.path.join(self.d, "mounted-volume")
+        with mock.patch("spdw_purge.core.os.path.ismount", return_value=True):
+            self.assertTrue(core.protected(candidate))
 
     def test_old_kernels_keeps_running_and_newest(self):
         txt = ("linux-image-6.1.0-13-amd64\tii \t300\nlinux-image-6.1.0-18-amd64\tii \t300\n"
