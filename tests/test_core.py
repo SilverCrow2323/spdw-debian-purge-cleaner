@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 import threading
 import unittest
@@ -112,6 +113,11 @@ class FinderTests(unittest.TestCase):
 
 
 class CatTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.d, ignore_errors=True)
+        core.DRY.clear()
+
     def test_every_usable_category_scans(self):
         for c in cats.build_cats():
             if c.usable():
