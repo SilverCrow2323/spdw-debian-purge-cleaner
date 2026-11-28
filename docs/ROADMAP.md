@@ -28,3 +28,8 @@ No protected path or mount point can be selected for deletion; dry-run changes n
 
 ## Release target
 Maintain the 1.1.x maintenance line until deletion outcome reporting and package-manager revalidation pass the full test suite. No release is created by this change.
+
+## Evening verification — 2026-11-28
+
+- Verified [unit-and-self-tests run #46177103975](https://github.com/SilverCrow2323/spdw-debian-purge-cleaner/actions/runs/46177103975) on `f9757c2`; Python module compilation, unit tests and the application self-test passed.
+- This is test-runner evidence only. No cleanup was executed on the host. Mount-point protection still requires a disposable-filesystem/manual integration test before release.
