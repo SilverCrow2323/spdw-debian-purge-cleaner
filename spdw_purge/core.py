@@ -302,14 +302,55 @@ def protected(p):
     return False
 
 
+def _contains_nested_mount(path):
+    """Refuse recursive deletion when a descendant crosses a mount boundary."""
+    try:
+        root_stat = os.lstat(path)
+    except OSError:
+        return False
+    if not S.S_ISDIR(root_stat.st_mode) or S.S_ISLNK(root_stat.st_mode):
+        return False
+    root_device = root_stat.st_dev
+    stack = [path]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        child_stat = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if not S.S_ISDIR(child_stat.st_mode) or S.S_ISLNK(child_stat.st_mode):
+                        continue
+                    if child_stat.st_dev != root_device or os.path.ismount(entry.path):
+                        return True
+                    stack.append(entry.path)
+        except OSError:
+            continue
+    return False
+
+
+def _deletion_block_reason(path):
+    if protected(path):
+        return "target is a protected path or mount point"
+    if _contains_nested_mount(path):
+        return "target contains a nested mount point"
+    return None
+
+
 def dangerous(p):
     q = os.path.normpath(p)
     return any(q == d or q.startswith(d + "/") for d in DANGER_PREFIX)
 
 
 def rm_path(p):
-    """Delete a file/tree silently. Returns bytes freed (or would-be freed in dry-run)."""
+    """Delete a file/tree only inside the selected filesystem; return verified bytes freed."""
     n = du(p)
+    reason = _deletion_block_reason(p)
+    if reason:
+        audit(f"refuse rm {p}: {reason}")
+        return 0
     audit(f"rm {p} ({human(n)})")
     if DRY.is_set():
         return n
@@ -317,15 +358,21 @@ def rm_path(p):
         if os.path.islink(p) or not os.path.isdir(p):
             os.remove(p)
         else:
-            shutil.rmtree(p, ignore_errors=True)
-    except OSError:
+            shutil.rmtree(p)
+    except OSError as exc:
+        audit(f"rm failed {p}: {exc}")
         return 0
-    return n
+    return n if not os.path.lexists(p) else 0
 
 
 def destroy(p, shred, log):
-    """Delete with logging and optional shred. Returns bytes freed."""
+    """Delete with logging and optional shred without crossing protected mounts."""
     freed = du(p)
+    reason = _deletion_block_reason(p)
+    if reason:
+        audit(f"refuse delete {p}: {reason}")
+        log(f"[!] refusing {p}: {reason}", "err")
+        return 0
     audit(f"{'shred' if shred else 'rm'} {p} ({human(freed)})")
     if DRY.is_set():
         log(f"[dry-run] would delete {p}  ({human(freed)})", "warn")
